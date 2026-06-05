@@ -1,0 +1,177 @@
+name: Build HermesX Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+
+env:
+  HERMESX_REPO: wwjiang0328/hermesx
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            os: windows-latest
+            artifact: HermesX-windows-x64.exe
+          - target: macos-x64
+            os: macos-13
+            artifact: HermesX-macos-x64.zip
+          - target: macos-arm64
+            os: macos-latest
+            artifact: HermesX-macos-arm64.zip
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout open-hermesx (README)
+        uses: actions/checkout@v4
+
+      - name: Clone private HermesX source
+        run: |
+          git clone --depth 1 https://oauth2:${{ secrets.HERMERSX_PAT }}@github.com/${{ env.HERMESX_REPO }}.git hermesx-src
+        env:
+          GIT_TERMINAL_PROMPT: 0
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+
+      - name: Install Tauri CLI
+        run: |
+          npm install -g @tauri-apps/cli@latest
+
+      - name: Install frontend dependencies
+        working-directory: hermesx-src
+        run: |
+          npm ci
+          npm install @tauri-apps/plugin-shell @tauri-apps/plugin-process @tauri-apps/plugin-fs @tauri-apps/plugin-dialog @tauri-apps/plugin-clipboard-manager @tauri-apps/plugin-updater
+
+      - name: Build HermesX (${{ matrix.target }})
+        working-directory: hermesx-src
+        run: |
+          if [[ "${{ matrix.os }}" == windows-* ]]; then
+            npm run tauri build -- --target x86_64-pc-windows-msvc --bundles nsis
+          elif [[ "${{ matrix.os }}" == macos-* ]]; then
+            if [[ "${{ matrix.target }}" == "macos-arm64" ]]; then
+              npm run tauri build -- --target aarch64-apple-darwin --bundles dmg
+            else
+              npm run tauri build -- --target x86_64-apple-darwin --bundles dmg
+            fi
+          fi
+
+      - name: Prepare artifacts
+        run: |
+          mkdir -p release
+          SOURCE_DIR="hermesx-src/src-tauri/target/*/release/bundle"
+
+          if [[ "${{ matrix.os }}" == windows-* ]]; then
+            # Windows: find NSIS installer
+            find $SOURCE_DIR -name "*.exe" -type f | while read f; do
+              cp "$f" "release/{{ matrix.artifact }}"
+            done
+          elif [[ "${{ matrix.os }}" == macos-* ]]; then
+            # macOS: zip the .app bundle or DMG
+            find $SOURCE_DIR -name "*.dmg" -type f | while read f; do
+              cp "$f" "release/$(basename "$f")"
+            done
+            # Fallback: look for .app
+            if [ ! "$(ls -A release/ 2>/dev/null)" ]; then
+              find $SOURCE_DIR -name "*.app" -maxdepth 2 -type d | head -1 | while read app; do
+                cd "$(dirname "$app")" && zip -r "$GITHUB_WORKSPACE/release/${{ matrix.artifact }}" "$(basename "$app")"
+              done
+            fi
+          fi
+
+          ls -la release/ || echo "No artifacts found"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "TAG=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: List artifacts
+        run: find release-artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.TAG }}
+          name: HermesX ${{ steps.tag.outputs.TAG }}
+          body: |
+            ## 📦 HermesX ${{ steps.tag.outputs.TAG }}
+
+            ### 桌面端下载
+
+            | 平台 | 文件 |
+            |------|------|
+            | 🪟 Windows x64 | `HermesX-windows-x64.exe` |
+            | 🍎 macOS Apple Silicon | `HermesX-macos-arm64.dmg` |
+            | 🍎 macOS Intel | `HermesX-macos-x64.dmg` |
+
+            > ⚠️ macOS 首次打开若提示「无法验证开发者」，前往 **系统设置 → 隐私与安全性** 中点击「仍要打开」。
+
+            ---
+
+            Built with [Tauri](https://tauri.app/) · HermesX © 2026
+          files: release-artifacts/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
