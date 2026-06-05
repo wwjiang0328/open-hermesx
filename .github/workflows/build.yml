@@ -1,0 +1,96 @@
+name: Build Releases
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build from (e.g. v1.2.6)'
+        required: true
+
+jobs:
+  # ── Windows ──────────────────────────────────────
+  windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout private hermersX
+        uses: actions/checkout@v4
+        with:
+          repository: wwjiang0328/hermersX
+          token: ${{ secrets.HERMERSX_PAT }}
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows
+        run: npm run tauri build -- --target x86_64-pc-windows-msvc
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermesx-windows
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+
+  # ── macOS ────────────────────────────────────────
+  macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout private hermersX
+        uses: actions/checkout@v4
+        with:
+          repository: wwjiang0328/hermersX
+          token: ${{ secrets.HERMERSX_PAT }}
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS (universal)
+        run: npm run tauri build -- --target universal-apple-darwin
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermesx-macos
+          path: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+
+  # ── Create Release ───────────────────────────────
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          files: |
+            hermesx-windows/**/*
+            hermesx-macos/**/*
+          generate_release_notes: true
