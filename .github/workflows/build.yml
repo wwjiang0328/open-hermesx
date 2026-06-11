@@ -173,27 +173,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Sync to Gitee Release
-        env:
-          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
-        run: |
-          TAG="${{ steps.tag.outputs.TAG }}"
-          AUTH="Authorization: Bearer $GITEE_TOKEN"
-          API="https://gitee.com/api/v5/repos/jackmore/open-hermesx"
-          SHA=$(curl -s "$API/branches/main" | python3 -c "import json,sys; print(json.load(sys.stdin)['commit']['sha'])")
-          BODY="HermesX ${TAG}\\n\\n| Platform | File |\\n|----------|------|\\n| Windows  | HermesX-win-${TAG}.exe |\\n| macOS    | HermesX-mac-${TAG}.dmg |"
-          RESP=$(curl -s -X POST "$API/releases" -H "Content-Type: application/json" -H "$AUTH" \
-            -d "{\"tag_name\":\"$TAG\",\"name\":\"HermesX $TAG\",\"target_commitish\":\"$SHA\",\"body\":\"$BODY\"}")
-          RELEASE_ID=$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
-          if [ -z "$RELEASE_ID" ]; then
-            echo "Fetching existing release..."
-            RELEASE_ID=$(curl -s "$API/releases/tags/$TAG" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
-          fi
-          echo "Gitee Release ID: $RELEASE_ID"
-          for f in release-artifacts/HermesX-*; do
-            [ -f "$f" ] || continue
-            echo "Uploading: $(basename $f)"
-            curl -s --max-time 1200 -X POST "$API/releases/$RELEASE_ID/files" -F "file=@$f" -H "$AUTH" || echo "Upload failed (exit $?)"
-            echo ""
-          done
-          echo "Gitee sync done"
+      # Gitee sync disabled — uploads to China servers are too slow
+      # - name: Sync to Gitee Release
+      #   env:
+      #     GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+      #   run: |
+      #     TAG="${{ steps.tag.outputs.TAG }}"
+      #     ...
