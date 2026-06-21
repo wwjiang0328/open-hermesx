@@ -12,14 +12,16 @@ Just describe the outcome you want. HermesX brings order to your conversations, 
 
 ## Changelog
 
-### v1.0.0 · Public Beta (2026-06-19)
+### v1.0.0 · Public Beta (2026-06-21)
 
-Polished all the way from 0.x to 1.0.0, HermesX now enters public beta. This release is all about letting you use it with peace of mind:
+Polished all the way from 0.x to 1.0.0, HermesX now enters public beta. This release is all about making the agent more autonomous and secure:
 
-- 🚀 First public beta, with a mature, stable experience
-- 🔒 Safer browser launching: only trusted browsers are allowed, no impersonated launches
-- ✅ Install integrity checks: updates verify their fingerprint automatically, so you always get the genuine build
-- 🛡️ Stronger network protection: malicious redirects are blocked at the source for safer access
-- 🧹 Leaner permissions: only the essentials, never more access than needed
+- Sub-agent orchestration: automatically decomposes complex tasks and spawns parallel sub-agents
+- Browser tab control: locates elements via CSS/Role/Text, auto-waits for render, screenshot-to-analysis
+- Persistent shell sessions: directory and environment carry across commands
+- Project context awareness: reads HERMESX.md to inject instructions on the fly
+- Disaster protection: critical deletes are undoable — no more panic
+- Install integrity checks + network safety hardening
+- MCP ecosystem: GitHub / PostgreSQL and more plug-and-play tools
 
 Give it a try and tell us what you think. Every piece of feedback makes the full release better.
