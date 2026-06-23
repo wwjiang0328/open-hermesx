@@ -12,6 +12,14 @@ Just describe the outcome you want. HermesX brings order to your conversations, 
 
 ## Changelog
 
+### v1.0.2 (2026-06-23)
+
+- PPT generation: Agent can now directly produce presentations (HTML Deck + PPTX), from brief to final output in one go
+- Plan proposals: complex tasks now produce a plan for review before execution
+- Provider rate limiting: Rate Limit Gate prevents API call overload
+- RAG engine upgrade: more precise keyword retrieval
+- Tool Executor refactor: Tool Registry + Safety Guards for more robust execution
+
 ### v1.0.1 (2026-06-22)
 
 From "read-only analysis" to "hands-on action" — this release gives the agent the ability to see and operate your desktop:
