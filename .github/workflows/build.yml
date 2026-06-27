@@ -1,4 +1,4 @@
-name: Build HermesX Release
+name: Build Asteria Release
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
         required: true
 
 env:
-  HERMESX_REPO: ${{ secrets.HERMESX_REPO }}
+  ASTERIA_REPO: ${{ secrets.ASTERIA_REPO }}
 
 jobs:
   build:
@@ -30,11 +30,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Clone private HermesX source
+      - name: Clone private Asteria source
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.HERMESX_REPO }}
-          token: ${{ secrets.HERMERSX_PAT }}
+          repository: ${{ env.ASTERIA_REPO }}
+          token: ${{ secrets.ASTERIA_PAT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -68,7 +68,7 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build HermesX
+      - name: Build Asteria
         run: npm run build -- --target ${{ matrix.triples }}
 
       - name: Collect artifacts
@@ -88,7 +88,7 @@ jobs:
             fi
             TAG=${TAG#v}
             # Find .app and ad-hoc sign (eliminates "damaged" Gatekeeper block)
-            APP_DIR=$(find src-tauri/target -name "HermesX.app" -maxdepth 6 -type d | head -1)
+            APP_DIR=$(find src-tauri/target -name "Asteria.app" -maxdepth 6 -type d | head -1)
             if [ -n "$APP_DIR" ]; then
               echo "Ad-hoc signing $APP_DIR..."
               codesign --force --deep --sign - "$APP_DIR" && echo "Signed OK" || echo "Sign failed (non-fatal)"
@@ -96,17 +96,17 @@ jobs:
             # Create DMG from signed .app
             mkdir -p release
             if [ -n "$APP_DIR" ] && [ -d "$APP_DIR" ]; then
-              hdiutil create -volname "HermesX" -srcfolder "$APP_DIR" -ov -format UDZO "release/HermesX-mac-${TAG}.dmg"
-              echo "Created signed DMG: HermesX-mac-${TAG}.dmg"
+              hdiutil create -volname "Asteria" -srcfolder "$APP_DIR" -ov -format UDZO "release/Asteria-mac-${TAG}.dmg"
+              echo "Created signed DMG: Asteria-mac-${TAG}.dmg"
             else
               # Fallback: collect Tauri's original DMG
               echo "App not found, falling back to Tauri DMG..."
               find src-tauri/target -name "*.dmg" -path "*/bundle/dmg/*" | while read f; do
-                cp "$f" "release/HermesX-mac-${TAG}.dmg"
+                cp "$f" "release/Asteria-mac-${TAG}.dmg"
               done
             fi
           fi
-          # Rename to canonical form: HermesX-{platform}-{version}.{ext}
+          # Rename to canonical form: Asteria-{platform}-{version}.{ext}
           TAG=${GITHUB_REF#refs/tags/}
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG=${{ github.event.inputs.tag }}
@@ -115,11 +115,11 @@ jobs:
           pushd release
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             for f in *.exe; do
-              mv "$f" "HermesX-win-${TAG}.exe" 2>/dev/null || true
+              mv "$f" "Asteria-win-${TAG}.exe" 2>/dev/null || true
             done
           elif [[ "${{ runner.os }}" == "macOS" ]]; then
             for f in *.dmg; do
-              mv "$f" "HermesX-mac-${TAG}.dmg" 2>/dev/null || true
+              mv "$f" "Asteria-mac-${TAG}.dmg" 2>/dev/null || true
             done
           fi
           popd
@@ -129,7 +129,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HermesX-${{ matrix.target }}
+          name: Asteria-${{ matrix.target }}
           path: release/
 
   release:
@@ -161,23 +161,23 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.TAG }}
-          name: HermesX ${{ steps.tag.outputs.TAG }}
+          name: Asteria ${{ steps.tag.outputs.TAG }}
           body: |
-            ## 📦 HermesX ${{ steps.tag.outputs.TAG }}
+            ## 📦 Asteria ${{ steps.tag.outputs.TAG }}
 
             ### 桌面端下载
 
             | 平台 | 文件 |
             |------|------|
-            | 🪟 Windows x64 | `HermesX-win-${{ steps.tag.outputs.VERSION }}.exe` |
-            | 🍎 macOS (M1–M4) | `HermesX-mac-${{ steps.tag.outputs.VERSION }}.dmg` |
+            | 🪟 Windows x64 | `Asteria-win-${{ steps.tag.outputs.VERSION }}.exe` |
+            | 🍎 macOS (M1–M4) | `Asteria-mac-${{ steps.tag.outputs.VERSION }}.dmg` |
 
             > ⚠️ macOS 首次打开若提示&#34;无法验证开发者&#34;，右键点击 App → 选择&#34;打开&#34;即可。后续可直接双击打开。
             > ⚠️ Windows 安装若 SmartScreen 拦截，点击&#34;更多信息 → 仍要运行&#34;。
 
             ---
 
-            Built with [Tauri](https://tauri.app/) · HermesX © 2026
+            Built with [Tauri](https://tauri.app/) · Asteria © 2026
           files: release-artifacts/*
           draft: false
           prerelease: false
