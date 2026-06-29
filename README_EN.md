@@ -22,3 +22,4 @@ From HermesX to Asteria, a fresh start:
 - Built-in skills reorganization: optimized skill source structure for stable loading
 - Agent reply placeholder refinement: smoother conversation flow
 - UI polish: refreshed brand colors, icons, and typography
+- Resource filtering: auto-exclude source files (.ts/.py/.rs etc.) from packaged skills to prevent source leakage
